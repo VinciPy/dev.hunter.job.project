@@ -41,7 +41,7 @@ export default function Home() {
           <p className="text-lg text-muted-foreground text-center mb-8">
             Discover opportunities from multiple sources in one place
           </p>
-          
+
           {/* Search Bar */}
           <div className="max-w-2xl mx-auto relative">
             <Search className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
