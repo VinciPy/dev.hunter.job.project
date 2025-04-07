@@ -1,34 +1,76 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Briefcase, MapPin, Code2 } from 'lucide-react';
 import JobCard from '@/components/JobCard';
 import JobFilters from '@/components/JobFilters';
-import { mockJobs } from '@/lib/mock-data';
 
 export default function Home() {
-  const [jobs, setJobs] = useState(mockJobs);
+  interface Job {
+    id: string;
+    title: string;
+    company: string;
+    companyLogo: string;
+    type: string;
+    location: string;
+    technologies: string[];
+    description: string;
+    postedDate: string;
+    salaryRange?: string;
+    experienceLevel: string;
+    salary: string;
+    postedAt: string;
+    applyUrl: string;
+  }
+
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     search: '',
     language: '',
     experience: '',
     location: '',
   });
-
-  const filteredJobs = jobs.filter((job) => {
-    const matchesSearch =
-      job.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-      job.company.toLowerCase().includes(filters.search.toLowerCase());
-    const matchesLanguage =
-      !filters.language || job.technologies.includes(filters.language);
-    const matchesExperience =
-      !filters.experience || job.experienceLevel === filters.experience;
-    const matchesLocation =
-      !filters.location ||
-      job.location.toLowerCase().includes(filters.location.toLowerCase());
-
-    return matchesSearch && matchesLanguage && matchesExperience && matchesLocation;
+  const [jobStats, setJobStats] = useState({
+    totalJobs: 0,
+    locations: 0,
+    technologies: 0
   });
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      setLoading(true);
+      try {
+        const queryParams = new URLSearchParams();
+        if (filters.search) queryParams.append('search', filters.search);
+        if (filters.language) queryParams.append('language', filters.language);
+        if (filters.experience) queryParams.append('experience', filters.experience);
+        if (filters.location) queryParams.append('location', filters.location);
+        const response = await fetch(`/api/jobs?${queryParams.toString()}`);
+        if (!response.ok) throw new Error('Failed to fetch jobs');
+        const data = await response.json();
+        setJobs(data.jobs);
+        const uniqueLocations = new Set<string>(data.jobs.map((job: { location: string }) => job.location));
+        const uniqueTechnologies = new Set();
+        data.jobs.forEach((job: { id: string; location: string; technologies: string[] }) => job.technologies.forEach((tech: string) => uniqueTechnologies.add(tech)));
+        setJobStats({
+          totalJobs: data.jobs.length,
+          locations: uniqueLocations.size,
+          technologies: uniqueTechnologies.size
+        });
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching jobs:', err);
+        setError('Failed to load jobs. Please try again later.');
+        setJobs([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchJobs();
+  }, [filters]);
 
   return (
     <main className="min-h-screen bg-background">
@@ -59,21 +101,21 @@ export default function Home() {
             <div className="flex items-center justify-center space-x-4 bg-background rounded-lg p-6 shadow-sm">
               <Briefcase className="h-8 w-8 text-primary" />
               <div>
-                <h3 className="text-2xl font-bold">{jobs.length}+</h3>
+                <h3 className="text-2xl font-bold">{jobStats.totalJobs}+</h3>
                 <p className="text-muted-foreground">Active Jobs</p>
               </div>
             </div>
             <div className="flex items-center justify-center space-x-4 bg-background rounded-lg p-6 shadow-sm">
               <MapPin className="h-8 w-8 text-primary" />
               <div>
-                <h3 className="text-2xl font-bold">50+</h3>
+                <h3 className="text-2xl font-bold">{jobStats.locations}+</h3>
                 <p className="text-muted-foreground">Locations</p>
               </div>
             </div>
             <div className="flex items-center justify-center space-x-4 bg-background rounded-lg p-6 shadow-sm">
               <Code2 className="h-8 w-8 text-primary" />
               <div>
-                <h3 className="text-2xl font-bold">100+</h3>
+                <h3 className="text-2xl font-bold">{jobStats.technologies}+</h3>
                 <p className="text-muted-foreground">Technologies</p>
               </div>
             </div>
@@ -86,14 +128,30 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <JobFilters filters={filters} setFilters={setFilters} />
           <div className="lg:col-span-3">
-            <h2 className="text-2xl font-semibold mb-6">
-              {filteredJobs.length} Jobs Available
-            </h2>
-            <div className="space-y-6">
-              {filteredJobs.map((job) => (
-                <JobCard key={job.id} job={job} />
-              ))}
-            </div>
+            {loading ? (
+              <div className="flex justify-center items-center h-40">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : error ? (
+              <div className="bg-red-50 p-4 rounded-md text-red-800">{error}</div>
+            ) : (
+              <>
+                <h2 className="text-2xl font-semibold mb-6">
+                  {jobs.length} Jobs Available
+                </h2>
+                {jobs.length === 0 ? (
+                  <div className="bg-muted p-8 rounded-md text-center">
+                    <p className="text-muted-foreground">No jobs found matching your criteria.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {jobs.map((job) => (
+                      <JobCard key={job.id} job={job} />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>

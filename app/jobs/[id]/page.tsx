@@ -14,13 +14,9 @@ export default function JobDetails({
 }) {
   const [job, setJob] = useState<Job | null>(null);
   const [isSaved, setIsSaved] = useState(false);
-
   useEffect(() => {
-    // In a real app, this would be an API call
     const foundJob = mockJobs.find((j) => j.id === params.id);
     setJob(foundJob || null);
-
-    // Check if job is saved
     const savedJobs = JSON.parse(localStorage.getItem('savedJobs') || '[]');
     setIsSaved(savedJobs.includes(params.id));
   }, [params.id]);
